@@ -1,3 +1,5 @@
+--- START OF FILE index.html ---
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -88,7 +90,7 @@
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-      transform: translateY(-2px);
+      /* transform: translateY(-2px); /* Removed slight transform on focus */ */
     }
 
     .form-control:hover {
@@ -98,11 +100,13 @@
     select.form-control {
       cursor: pointer;
       appearance: none;
+      /* Updated background position for RTL */
       background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-      background-position: left 15px center;
+      background-position: right 15px center; /* Position arrow on the left */
       background-repeat: no-repeat;
       background-size: 16px;
-      padding-left: 45px;
+      padding-right: 45px; /* Add padding on the right for the arrow */
+      padding-left: 20px; /* Keep original left padding */
     }
 
     .score-input {
@@ -178,7 +182,10 @@
       border-radius: 50%;
       border-top-color: transparent;
       animation: spin 1s ease-in-out infinite;
-      margin-left: 10px;
+      /* Adjusted margin for RTL */
+      margin-right: 10px;
+      margin-left: 0;
+      vertical-align: middle;
     }
 
     @keyframes spin {
@@ -194,6 +201,8 @@
       color: #e53e3e;
       font-size: 0.85rem;
       margin-top: 5px;
+      /* Use visibility instead of display for smoother transitions if needed,
+         but display: none is fine for simple show/hide */
       display: none;
     }
 
@@ -201,16 +210,21 @@
       border-color: #e53e3e;
     }
 
+    /* Show validation message when the sibling input has the 'invalid' class */
     .form-control.invalid + .validation-message {
-      display: block;
+        display: block;
     }
+
+    /* Also show validation message if a required field is empty and the form is submitted */
+    /* This can be handled by the JS validation logic triggering the 'invalid' class */
+
 
     @media (max-width: 768px) {
       .container {
         padding: 30px 20px;
         margin: 10px;
       }
-      
+
       .header h1 {
         font-size: 1.6rem;
       }
@@ -272,16 +286,17 @@
 
       <div class="form-group">
         <label class="form-label" for="score">الدرجة (من 0 إلى 20)</label>
-        <input 
-          type="number" 
-          id="score" 
-          class="form-control score-input" 
-          min="0" 
-          max="20" 
+        <input
+          type="number"
+          id="score"
+          class="form-control score-input"
+          min="0"
+          max="20"
           placeholder="أدخل الدرجة"
           required
         />
-        <div class="validation-message">يرجى إدخال درجة صحيحة (0-20)</div>
+        <!-- Validation message for the score input -->
+        <div class="validation-message">يرجى إدخال درجة صحيحة بين 0 و 20</div>
       </div>
 
       <button type="submit" class="submit-btn" id="submitBtn">
@@ -299,53 +314,81 @@
       const submitBtn = document.getElementById('submitBtn');
       const loading = document.getElementById('loading');
       const result = document.getElementById('result');
-      
+
+      // *** REPLACE WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL ***
+      // Make sure it's an /exec URL for production
+      const appsScriptUrl = "https://script.google.com/macros/s/AKfycbzifa3v9AW5IXRlQnKetL5H2LaA9Jy8BfAaiGehw1wuQsDaGEwhuCwcmOnAsWgZAjctwQ/exec"; // Example URL - REPLACE THIS
+
       // Add focus effects
       const formControls = document.querySelectorAll('.form-control');
       formControls.forEach(control => {
         control.addEventListener('focus', function() {
           this.closest('.form-group').classList.add('focused');
         });
-        
+
         control.addEventListener('blur', function() {
           this.closest('.form-group').classList.remove('focused');
-          validateField(this);
+          validateField(this); // Validate on blur
         });
       });
 
-      // Real-time validation
+      // Real-time validation function
       function validateField(field) {
         const value = field.value.trim();
-        const isValid = field.type === 'number' 
-          ? value !== '' && value >= 0 && value <= 20
-          : value !== '';
-        
+        let isValid = true;
+        const validationMessage = field.nextElementSibling; // Assuming validation message is the next sibling
+
+        if (field.type === 'number') {
+          // Check for empty string OR if parsing to number fails OR if out of range
+          const numValue = parseFloat(value);
+          isValid = value !== '' && !isNaN(numValue) && numValue >= parseFloat(field.min) && numValue <= parseFloat(field.max);
+          // Update validation message for number input if needed (optional, using generic one now)
+          // if (!isValid) {
+          //     validationMessage.textContent = 'يرجى إدخال درجة صحيحة بين ' + field.min + ' و ' + field.max;
+          // }
+        } else { // For select fields
+          isValid = value !== '';
+        }
+
         if (isValid) {
           field.classList.remove('invalid');
+          if (validationMessage) {
+            validationMessage.style.display = 'none';
+          }
         } else {
           field.classList.add('invalid');
+           if (validationMessage) {
+            validationMessage.style.display = 'block';
+          }
         }
-        
+
         return isValid;
       }
 
+      // Validate all fields
+      function validateForm() {
+         let isFormValid = true;
+         formControls.forEach(control => {
+             // Ensure validation checks all controls and updates isFormValid correctly
+             if (!validateField(control)) {
+                 isFormValid = false; // Set to false if any field is invalid
+             }
+         });
+         return isFormValid;
+      }
+
+
       // Form submission
-      form.addEventListener('submit', function(e) {
+      form.addEventListener('submit', async function(e) { // Added async keyword
         e.preventDefault();
-        
-        // Validate all fields
-        let isFormValid = true;
-        formControls.forEach(control => {
-          if (!validateField(control)) {
-            isFormValid = false;
-          }
-        });
-        
-        if (!isFormValid) {
-          showResult('يرجى ملء جميع الحقول بشكل صحيح', 'error');
+
+        // Validate all fields on submit
+        if (!validateForm()) {
+          showResult('يرجى ملء جميع الحقول بشكل صحيح.', 'error');
           return;
         }
-        
+
+        // If validation passes, proceed with submission
         submitScore();
       });
 
@@ -359,31 +402,37 @@
         // Show loading state
         submitBtn.disabled = true;
         loading.style.display = 'inline-block';
-        result.classList.remove('show');
+        result.classList.remove('show'); // Hide previous result
 
         try {
           const column = `${month}_${week}_${subject}`;
-          
-          // Replace with your Google Apps Script URL
-          const response = await fetch("https://script.google.com/macros/s/AKfycbw1eF7J29VhYvEa3bGOJvJ1zgHga8yRgMm0kmf9Nd9-SkxU04ELTL08DlDAk-cZ-iVktQ/exec", {
+
+          const response = await fetch(appsScriptUrl, { // Use the defined URL
             method: "POST",
+            mode: "cors", // Add cors mode
             body: JSON.stringify({ student, column, score }),
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              // Add CORS headers if needed on the client side (usually handled by server/script)
             }
           });
 
-          const text = await response.text();
-          
-          if (response.ok) {
-            showResult(`تم تسجيل درجة ${score} للطالب ${student} بنجاح!`, 'success');
-            form.reset();
-            formControls.forEach(control => control.classList.remove('invalid'));
-          } else {
-            showResult('حدث خطأ أثناء تسجيل الدرجة. يرجى المحاولة مرة أخرى.', 'error');
+          // Parse the JSON response from the script
+          const responseData = await response.json(); // Expecting JSON
+
+          // Check the status from the JSON response
+          if (responseData.status === 'success') {
+            showResult(responseData.message || `تم تسجيل درجة ${score} للطالب ${student} بنجاح!`, 'success');
+            resetForm(); // Reset form and clear validation
+          } else { // Assume 'error' status or unexpected JSON structure
+            // Use the error message from the script, or a fallback generic message
+            showResult(responseData.message || 'حدث خطأ غير معروف أثناء تسجيل الدرجة.', 'error');
           }
+
         } catch (error) {
-          showResult('تعذر الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.', 'error');
+          // Handle network errors or issues parsing JSON (if not valid JSON was returned)
+          console.error("Fetch error:", error);
+          showResult('تعذر الاتصال بالخادم أو معالجة الرد. يرجى التحقق من اتصال الإنترنت أو تكوين السكربت.', 'error'); // Cannot connect or process response...
         } finally {
           // Hide loading state
           submitBtn.disabled = false;
@@ -391,17 +440,50 @@
         }
       }
 
-      function showResult(message, type) {
-        result.textContent = message;
-        result.className = `result ${type}`;
-        result.classList.add('show');
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-          result.classList.remove('show');
-        }, 5000);
+      // Function to reset the form and clear validation states
+      function resetForm() {
+          form.reset();
+          formControls.forEach(control => {
+              control.classList.remove('invalid');
+              // Hide validation messages
+              const validationMessage = control.nextElementSibling;
+              if (validationMessage && validationMessage.classList.contains('validation-message')) {
+                  validationMessage.style.display = 'none';
+              }
+          });
+           // Reset select placeholders explicitly as form.reset() might behave differently
+           document.getElementById('student').value = "";
+           document.getElementById('month').value = "";
+           document.getElementById('week').value = "";
+           document.getElementById('subject').value = "";
       }
-    });
+
+
+      // Function to show result message
+      let resultTimeout; // To manage the auto-hide timeout
+      function showResult(message, type) {
+        // Clear any previous timeout
+        clearTimeout(resultTimeout);
+
+        result.textContent = message;
+        result.className = `result ${type}`; // Set the class
+        result.classList.add('show'); // Add the show class for transition
+
+        // Auto-hide after 5 seconds
+        resultTimeout = setTimeout(() => {
+          result.classList.remove('show');
+          // Optionally clear text after hiding animation completes
+          // setTimeout(() => { result.textContent = ''; }, 300); // Match CSS transition duration
+        }, 5000); // 5000ms = 5 seconds
+      }
+
+      // Initial state: Hide all validation messages
+      document.querySelectorAll('.validation-message').forEach(msg => msg.style.display = 'none');
+
+      // Trigger initial validation check (optional, but good for required fields)
+      // formControls.forEach(control => validateField(control));
+
+    }); // End DOMContentLoaded
   </script>
 </body>
 </html>
